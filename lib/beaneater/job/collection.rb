@@ -86,8 +86,9 @@ module Beaneater
     #
     # @api public
     def process!(options={})
-      release_delay = options.delete(:release_delay) || RELEASE_DELAY
+      release_delay   = options.delete(:release_delay) || RELEASE_DELAY
       reserve_timeout = options.delete(:reserve_timeout) || RESERVE_TIMEOUT
+      on_error        = options.delete(:on_error) || lambda{ |e| e }
       tubes.watch!(*processors.keys)
       loop do
         begin
@@ -104,6 +105,7 @@ module Beaneater
         rescue Beaneater::JobNotReserved, Beaneater::NotFoundError, Beaneater::TimedOutError
           retry
         rescue StandardError => e # handles unspecified errors
+          on_error.call( e )
           job.bury if job
         ensure # bury if still reserved
           job.bury if job && job.exists? && job.reserved?
